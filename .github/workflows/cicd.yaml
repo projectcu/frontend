@@ -25,7 +25,7 @@ jobs:
         run: npm test -- --watchAll=false --passWithNoTests
 
       - name: Build React app
-        run: CI=false PUBLIC_URL=/ npm run build
+        run: CI=false npm run build
 
       - name: Login to ACR
         uses: azure/docker-login@v1

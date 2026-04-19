@@ -1,4 +1,3 @@
-```yaml
 name: Build and Deploy to AKS
 
 on:
@@ -100,4 +99,3 @@ jobs:
           IMAGE=${{ needs.build.outputs.image }}
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/prod/deployment.yaml
           kubectl apply -f k8s/prod/
-```

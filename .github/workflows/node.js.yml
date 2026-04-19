@@ -1,4 +1,5 @@
-name: CICD-Frontend
+```yaml
+name: Build and Deploy to AKS
 
 on:
   push:
@@ -6,32 +7,21 @@ on:
       - main
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.set-image.outputs.image }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run tests
-        run: npm test -- --watchAll=false --passWithNoTests
-
-      - name: Build React app
-        run: |
-          CI=false npm run build
-
-      - name: Login to Azure
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.DEMOAPP_AZURE_CREDENTIALS }}
+      - run: npm install
+      - run: npm test -- --watchAll=false --passWithNoTests
+      - run: CI=false npm run build
 
       - name: Login to ACR
         uses: azure/docker-login@v1
@@ -40,31 +30,74 @@ jobs:
           username: ${{ secrets.DEMOAPP_REGISTRY_USERNAME }}
           password: ${{ secrets.DEMOAPP_REGISTRY_PASSWORD }}
 
-      - name: Build and Push Image
+      - name: Build & Push Image
+        id: set-image
         run: |
           IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/frontend:${{ github.run_id }}
-          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
           docker build -t $IMAGE .
           docker push $IMAGE
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
-      - name: Set AKS context
-        run: az aks get-credentials --resource-group project-demo --name projectaks
+  deploy-dev:
+    runs-on: ubuntu-latest
+    needs: build
+    environment: dev
 
-      # 🔵 DEV
-      - name: Deploy to DEV
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.DEMOAPP_AZURE_CREDENTIALS }}
+
+      - run: az aks get-credentials --resource-group project-demo --name projectaks
+
+      - name: Deploy DEV
         run: |
+          IMAGE=${{ needs.build.outputs.image }}
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/dev/deployment.yaml
           kubectl apply -f k8s/dev/
 
-      # 🟡 STAGE
-      - name: Deploy to STAGE
+  deploy-stage:
+    runs-on: ubuntu-latest
+    needs: deploy-dev
+    environment: stage
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.DEMOAPP_AZURE_CREDENTIALS }}
+
+      - run: az aks get-credentials --resource-group project-demo --name projectaks
+
+      - name: Deploy STAGE
         run: |
+          IMAGE=${{ needs.build.outputs.image }}
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/stage/deployment.yaml
           kubectl apply -f k8s/stage/
 
-      # 🔴 PROD (manual approval via GitHub environment)
-      - name: Deploy to PROD
-        if: github.ref == 'refs/heads/main'
+  deploy-prod:
+    runs-on: ubuntu-latest
+    needs: deploy-stage
+    environment: prod   # 👈 approval here
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.DEMOAPP_AZURE_CREDENTIALS }}
+
+      - run: az aks get-credentials --resource-group project-demo --name projectaks
+
+      - name: Deploy PROD
         run: |
+          IMAGE=${{ needs.build.outputs.image }}
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/prod/deployment.yaml
           kubectl apply -f k8s/prod/
+```

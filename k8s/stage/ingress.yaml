@@ -9,9 +9,10 @@ metadata:
 spec:
   ingressClassName: azure-application-gateway
   rules:
-  - http:
+  - host: stage.52.151.224.192.nip.io
+    http:
       paths:
-      - path: /stage
+      - path: /
         pathType: Prefix
         backend:
           service:

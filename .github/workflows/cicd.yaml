@@ -41,17 +41,6 @@ jobs:
           docker push $IMAGE
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
 
-      # 📊 BUILD METRICS
-      - name: Send Build Metrics
-        if: always()
-        run: |
-          STATUS=0
-          if [ "${{ job.status }}" == "success" ]; then STATUS=1; fi
-
-          echo "ci_build_status $STATUS" | curl --data-binary @- \
-          http://<PUSHGATEWAY_EXTERNAL_IP>:9091/metrics/job/frontend_build
-
-
   deploy-dev:
     runs-on: ubuntu-latest
     needs: build
@@ -75,12 +64,15 @@ jobs:
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/dev/deployment.yaml
           kubectl apply -f k8s/dev/
 
-      # 📊 DEV METRICS (AKS JOB)
-      - name: Apply Dev Metrics Job
+      # 📊 Push metrics via K8s Job (inside cluster)
+      - name: Send Dev Metrics (AKS Job)
         if: always()
         run: |
-          kubectl apply -f k8s/ci-metrics-job.yaml
+          STATUS=0
+          if [ "${{ job.status }}" == "success" ]; then STATUS=1; fi
 
+          kubectl delete job ci-metrics-job --ignore-not-found
+          sed "s/{{STATUS}}/$STATUS/g; s/{{ENV}}/dev/g" k8s/ci-metrics-job.yaml | kubectl apply -f -
 
   deploy-stage:
     runs-on: ubuntu-latest
@@ -105,17 +97,19 @@ jobs:
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/stage/deployment.yaml
           kubectl apply -f k8s/stage/
 
-      # 📊 STAGE METRICS
-      - name: Apply Stage Metrics Job
+      - name: Send Stage Metrics (AKS Job)
         if: always()
         run: |
-          kubectl apply -f k8s/ci-metrics-job.yaml
+          STATUS=0
+          if [ "${{ job.status }}" == "success" ]; then STATUS=1; fi
 
+          kubectl delete job ci-metrics-job --ignore-not-found
+          sed "s/{{STATUS}}/$STATUS/g; s/{{ENV}}/stage/g" k8s/ci-metrics-job.yaml | kubectl apply -f -
 
   deploy-prod:
     runs-on: ubuntu-latest
     needs: deploy-stage
-    environment: prod
+    environment: prod   # manual approval
 
     steps:
       - name: Checkout repository
@@ -135,8 +129,11 @@ jobs:
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/prod/deployment.yaml
           kubectl apply -f k8s/prod/
 
-      # 📊 PROD METRICS
-      - name: Apply Prod Metrics Job
+      - name: Send Prod Metrics (AKS Job)
         if: always()
         run: |
-          kubectl apply -f k8s/ci-metrics-job.yaml
+          STATUS=0
+          if [ "${{ job.status }}" == "success" ]; then STATUS=1; fi
+
+          kubectl delete job ci-metrics-job --ignore-not-found
+          sed "s/{{STATUS}}/$STATUS/g; s/{{ENV}}/prod/g" k8s/ci-metrics-job.yaml | kubectl apply -f -

@@ -16,8 +16,16 @@ spec:
             - |
               echo "Pushing CI/CD metrics to Pushgateway"
 
-              echo "ci_build_status 1" | curl --data-binary @- \
-              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/github_actions
+              # Build metric
+              echo "ci_build_status{service=\"frontend\"} 1" | curl --data-binary @- \
+              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/frontend_build
 
-              echo "ci_deploy_status 1" | curl --data-binary @- \
-              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/github_actions
+              # Deploy metrics (env-wise)
+              echo "ci_deploy_status{env=\"dev\",service=\"frontend\"} 1" | curl --data-binary @- \
+              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/frontend_dev
+
+              echo "ci_deploy_status{env=\"stage\",service=\"frontend\"} 1" | curl --data-binary @- \
+              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/frontend_stage
+
+              echo "ci_deploy_status{env=\"prod\",service=\"frontend\"} 1" | curl --data-binary @- \
+              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/frontend_prod

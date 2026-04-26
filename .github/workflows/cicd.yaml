@@ -41,7 +41,6 @@ jobs:
           docker push $IMAGE
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
 
-
   deploy-dev:
     runs-on: ubuntu-latest
     needs: build
@@ -57,23 +56,23 @@ jobs:
           creds: ${{ secrets.DEMOAPP_AZURE_CREDENTIALS }}
 
       - name: Get AKS credentials
-        run: az aks get-credentials --resource-group project-demo --name projectaks
+        run: az aks get-credentials --resource-group project-demo --name projectaks --overwrite-existing
 
       - name: Deploy to DEV
         run: |
           IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/frontend:${{ github.run_id }}
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/dev/deployment.yaml
-          kubectl apply -f k8s/dev/
+          kubectl apply -n dev -f k8s/dev/
+          kubectl rollout status deployment/frontend -n dev
 
-      - name: Send Dev Metrics (AKS Job)
+      - name: Send Dev Metrics
         if: always()
         run: |
           STATUS=0
-          if [ "${{ job.status }}" == "success" ]; then STATUS=1; fi
+          if [ "${{ job.status }}" = "success" ]; then STATUS=1; fi
 
           kubectl delete job ci-metrics-job -n monitoring --ignore-not-found
-          sed "s/{{STATUS}}/$STATUS/g; s/{{ENV}}/dev/g" k8s/ci-metrics-job.yaml | kubectl apply -f -
-
+          sed "s/{{STATUS}}/$STATUS/g; s/{{ENV}}/dev/g; s/{{SERVICE}}/frontend/g; s/{{RUN_ID}}/${{ github.run_id }}/g" k8s/ci-metrics-job.yaml | kubectl apply -f -
 
   deploy-stage:
     runs-on: ubuntu-latest
@@ -90,28 +89,28 @@ jobs:
           creds: ${{ secrets.DEMOAPP_AZURE_CREDENTIALS }}
 
       - name: Get AKS credentials
-        run: az aks get-credentials --resource-group project-demo --name projectaks
+        run: az aks get-credentials --resource-group project-demo --name projectaks --overwrite-existing
 
       - name: Deploy to STAGE
         run: |
           IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/frontend:${{ github.run_id }}
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/stage/deployment.yaml
-          kubectl apply -f k8s/stage/
+          kubectl apply -n stage -f k8s/stage/
+          kubectl rollout status deployment/frontend -n stage
 
-      - name: Send Stage Metrics (AKS Job)
+      - name: Send Stage Metrics
         if: always()
         run: |
           STATUS=0
-          if [ "${{ job.status }}" == "success" ]; then STATUS=1; fi
+          if [ "${{ job.status }}" = "success" ]; then STATUS=1; fi
 
           kubectl delete job ci-metrics-job -n monitoring --ignore-not-found
-          sed "s/{{STATUS}}/$STATUS/g; s/{{ENV}}/stage/g" k8s/ci-metrics-job.yaml | kubectl apply -f -
-
+          sed "s/{{STATUS}}/$STATUS/g; s/{{ENV}}/stage/g; s/{{SERVICE}}/frontend/g; s/{{RUN_ID}}/${{ github.run_id }}/g" k8s/ci-metrics-job.yaml | kubectl apply -f -
 
   deploy-prod:
     runs-on: ubuntu-latest
     needs: deploy-stage
-    environment: prod   # manual approval
+    environment: prod
 
     steps:
       - name: Checkout repository
@@ -123,19 +122,20 @@ jobs:
           creds: ${{ secrets.DEMOAPP_AZURE_CREDENTIALS }}
 
       - name: Get AKS credentials
-        run: az aks get-credentials --resource-group project-demo --name projectaks
+        run: az aks get-credentials --resource-group project-demo --name projectaks --overwrite-existing
 
       - name: Deploy to PROD
         run: |
           IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/frontend:${{ github.run_id }}
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/prod/deployment.yaml
-          kubectl apply -f k8s/prod/
+          kubectl apply -n prod -f k8s/prod/
+          kubectl rollout status deployment/frontend -n prod
 
-      - name: Send Prod Metrics (AKS Job)
+      - name: Send Prod Metrics
         if: always()
         run: |
           STATUS=0
-          if [ "${{ job.status }}" == "success" ]; then STATUS=1; fi
+          if [ "${{ job.status }}" = "success" ]; then STATUS=1; fi
 
           kubectl delete job ci-metrics-job -n monitoring --ignore-not-found
-          sed "s/{{STATUS}}/$STATUS/g; s/{{ENV}}/prod/g" k8s/ci-metrics-job.yaml | kubectl apply -f -
+          sed "s/{{STATUS}}/$STATUS/g; s/{{ENV}}/prod/g; s/{{SERVICE}}/frontend/g; s/{{RUN_ID}}/${{ github.run_id }}/g" k8s/ci-metrics-job.yaml | kubectl apply -f -

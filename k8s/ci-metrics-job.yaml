@@ -16,16 +16,12 @@ spec:
             - |
               echo "Pushing CI/CD metrics to Pushgateway"
 
-              # Build metric
-              echo "ci_build_status{service=\"frontend\"} 1" | curl --data-binary @- \
-              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/frontend_build
+              # Latest deployment status
+              echo "ci_deploy_status{env=\"{{ENV}}\",service=\"{{SERVICE}}\"} {{STATUS}}" | curl --data-binary @- \
+              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/{{SERVICE}}_status
 
-              # Deploy metrics (env-wise)
-              echo "ci_deploy_status{env=\"dev\",service=\"frontend\"} 1" | curl --data-binary @- \
-              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/frontend_dev
+              # Deployment event for correct count
+              echo "ci_deploy_event{env=\"{{ENV}}\",service=\"{{SERVICE}}\",run_id=\"{{RUN_ID}}\"} 1" | curl --data-binary @- \
+              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/{{SERVICE}}_event
 
-              echo "ci_deploy_status{env=\"stage\",service=\"frontend\"} 1" | curl --data-binary @- \
-              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/frontend_stage
-
-              echo "ci_deploy_status{env=\"prod\",service=\"frontend\"} 1" | curl --data-binary @- \
-              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/frontend_prod
+              echo "Metrics pushed successfully"

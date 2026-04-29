@@ -14,14 +14,16 @@ spec:
             - /bin/sh
             - -c
             - |
-              echo "Pushing CI/CD metrics to Pushgateway"
+              echo "Pushing Frontend CI/CD metrics"
+
+              PUSHGATEWAY_URL="http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091"
 
               # Latest deployment status
-              echo "ci_deploy_status{env=\"{{ENV}}\",service=\"{{SERVICE}}\"} {{STATUS}}" | curl --data-binary @- \
-              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/{{SERVICE}}_status
+              echo "ci_deploy_status{env=\"{{ENV}}\",service=\"frontend\"} {{STATUS}}" | curl --data-binary @- \
+              ${PUSHGATEWAY_URL}/metrics/job/frontend_status/env/{{ENV}}
 
-              # Deployment event for correct count
-              echo "ci_deploy_event{env=\"{{ENV}}\",service=\"{{SERVICE}}\",run_id=\"{{RUN_ID}}\"} 1" | curl --data-binary @- \
-              http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/{{SERVICE}}_event
+              # Unique deployment event (for counting)
+              echo "ci_deploy_event{env=\"{{ENV}}\",service=\"frontend\",run_id=\"{{RUN_ID}}\"} 1" | curl --data-binary @- \
+              ${PUSHGATEWAY_URL}/metrics/job/frontend_event/env/{{ENV}}/run/{{RUN_ID}}
 
-              echo "Metrics pushed successfully"
+              echo "Frontend metrics pushed successfully"

@@ -4,7 +4,7 @@ metadata:
   name: frontend
   namespace: prod
 spec:
-  replicas: 2   # HPA will scale from 2 to 5
+  replicas: 1
   selector:
     matchLabels:
       app: frontend
@@ -21,11 +21,11 @@ spec:
 
           resources:
             requests:
-              cpu: "300m"
-              memory: "512Mi"
+              cpu: "50m"
+              memory: "128Mi"
             limits:
-              cpu: "500m"
-              memory: "1Gi"
+              cpu: "200m"
+              memory: "256Mi"
 
           livenessProbe:
             httpGet:

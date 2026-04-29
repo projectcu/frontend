@@ -73,3 +73,5 @@ jobs:
             --name demoapp \
             --resource-group POC \
             --image $(acrName).azurecr.io/frontend:$(Build.SourceBranchName)-$(Build.BuildId)
+
+            

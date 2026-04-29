@@ -14,12 +14,10 @@ spec:
             - /bin/sh
             - -c
             - |
-              echo "Pushing Frontend CI/CD metrics"
-
               PUSHGATEWAY_URL="http://pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091"
 
-              echo "ci_deploy_status{env=\"{{ENV}}\",app_service=\"frontend\"} {{STATUS}}" | curl --data-binary @- \
+              echo "ci_deploy_status{env=\"{{ENV}}\",app=\"frontend\"} {{STATUS}}" | curl --data-binary @- \
               ${PUSHGATEWAY_URL}/metrics/job/frontend_status/env/{{ENV}}
 
-              echo "ci_deploy_event{env=\"{{ENV}}\",app_service=\"frontend\",run_id=\"{{RUN_ID}}\"} 1" | curl --data-binary @- \
-              ${PUSHGATEWAY_URL}/metrics/job/frontend_event_{{RUN_ID}}/env/{{ENV}}
+              echo "ci_deploy_event{env=\"{{ENV}}\",app=\"frontend\",run_id=\"{{RUN_ID}}\"} 1" | curl --data-binary @- \
+              ${PUSHGATEWAY_URL}/metrics/job/frontend_event/run/{{RUN_ID}}/env/{{ENV}}

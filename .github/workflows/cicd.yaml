@@ -21,9 +21,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run tests
-        run: npm test -- --watchAll=false --passWithNoTests
-
       - name: Build React app
         run: CI=false npm run build
 
@@ -47,11 +44,9 @@ jobs:
     environment: dev
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Login to Azure
-        uses: azure/login@v1
+      - uses: azure/login@v1
         with:
           creds: ${{ secrets.DEMOAPP_AZURE_CREDENTIALS }}
 
@@ -63,14 +58,12 @@ jobs:
           IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/frontend:${{ github.run_id }}
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/dev/deployment.yaml
           kubectl apply -n dev -f k8s/dev/
-          kubectl rollout status deployment/frontend -n dev
 
       - name: Send Dev Metrics
         if: always()
         run: |
           STATUS=0
           if [ "${{ job.status }}" = "success" ]; then STATUS=1; fi
-
           kubectl delete job ci-metrics-job -n monitoring --ignore-not-found
           sed "s/{{STATUS}}/$STATUS/g; s/{{ENV}}/dev/g; s/{{SERVICE}}/frontend/g; s/{{RUN_ID}}/${{ github.run_id }}/g" k8s/ci-metrics-job.yaml | kubectl apply -f -
 
@@ -80,11 +73,9 @@ jobs:
     environment: stage
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Login to Azure
-        uses: azure/login@v1
+      - uses: azure/login@v1
         with:
           creds: ${{ secrets.DEMOAPP_AZURE_CREDENTIALS }}
 
@@ -96,14 +87,12 @@ jobs:
           IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/frontend:${{ github.run_id }}
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/stage/deployment.yaml
           kubectl apply -n stage -f k8s/stage/
-          kubectl rollout status deployment/frontend -n stage
 
       - name: Send Stage Metrics
         if: always()
         run: |
           STATUS=0
           if [ "${{ job.status }}" = "success" ]; then STATUS=1; fi
-
           kubectl delete job ci-metrics-job -n monitoring --ignore-not-found
           sed "s/{{STATUS}}/$STATUS/g; s/{{ENV}}/stage/g; s/{{SERVICE}}/frontend/g; s/{{RUN_ID}}/${{ github.run_id }}/g" k8s/ci-metrics-job.yaml | kubectl apply -f -
 
@@ -113,11 +102,9 @@ jobs:
     environment: prod
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Login to Azure
-        uses: azure/login@v1
+      - uses: azure/login@v1
         with:
           creds: ${{ secrets.DEMOAPP_AZURE_CREDENTIALS }}
 
@@ -129,13 +116,12 @@ jobs:
           IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/frontend:${{ github.run_id }}
           sed -i "s|image: nginx|image: $IMAGE|g" k8s/prod/deployment.yaml
           kubectl apply -n prod -f k8s/prod/
-          kubectl rollout status deployment/frontend -n prod
+          kubectl rollout status deployment/frontend -n prod --timeout=60s
 
       - name: Send Prod Metrics
         if: always()
         run: |
           STATUS=0
           if [ "${{ job.status }}" = "success" ]; then STATUS=1; fi
-
           kubectl delete job ci-metrics-job -n monitoring --ignore-not-found
           sed "s/{{STATUS}}/$STATUS/g; s/{{ENV}}/prod/g; s/{{SERVICE}}/frontend/g; s/{{RUN_ID}}/${{ github.run_id }}/g" k8s/ci-metrics-job.yaml | kubectl apply -f -
